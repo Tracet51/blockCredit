@@ -13,6 +13,4 @@ EXPOSE 3000-4000
 
 WORKDIR /go/bin
 
-ENTRYPOINT [ "./blockcredit"]
-
-CMD [ "-p 3000" ]
+ENTRYPOINT [ "./blockcredit", "-p"]

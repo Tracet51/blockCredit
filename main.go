@@ -24,17 +24,13 @@ var (
 )
 
 func main() {
-	db, err := LoadDb()
+	container, err := InitializeContainer()
 
 	if err != nil {
 		panic(err)
 	}
 
-	if db == nil {
-		panic("Oh crap!")
-	}
-
-	db.Close()
+	container.db.Close()
 
 	portNumber := flag.Uint("p", 3000, "port to listen to peer")
 	flag.Parse()

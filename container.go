@@ -9,6 +9,11 @@ type Container struct {
 	db IDatastore
 }
 
+func ProvideContainer(db *Db) *Container {
+
+	return &Container{db: db}
+}
+
 func (container *Container) writeBlock(block *Block) {
 	bytes, err := json.Marshal(&block)
 	err = container.db.Put([]byte(block.Hash), bytes)

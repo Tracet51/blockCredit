@@ -7,3 +7,9 @@ services:
     image: blockcredit:latest
     build:
       context: ./
+    command: ["3000"]
+  blockcredit2:
+    ports:
+      - 3005:3005
+    image: blockcredit:latest
+    command: ["3005", "127.0.0.1:3000"]

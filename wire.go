@@ -6,9 +6,8 @@ import (
 	"github.com/google/wire"
 )
 
-func InitializeDB() (Db, error) {
+func InitializeContainer() (*Container, error) {
 
-	wire.Build(ProvideDb, ProvideLevelDb)
-
-	return Db{}, nil
+	wire.Build(ProvideContainer, ProvideDb, ProvideLevelDb)
+	return &Container{}, nil
 }

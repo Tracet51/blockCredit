@@ -22,8 +22,8 @@ func ProvideLevelDb() *leveldb.DB {
 	return db
 }
 
-func ProvideDb(db *leveldb.DB) Db {
-	return Db{db}
+func ProvideDb(db *leveldb.DB) *Db {
+	return &Db{db}
 }
 
 // IDatastore is an interface that wraps the levelDB api to provide IoC
