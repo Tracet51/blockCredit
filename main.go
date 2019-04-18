@@ -83,9 +83,9 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		_, err := reader.ReadString('\n')
+		_, err := reader.ReadString('\t')
 
-		if err != nil {
+		if err != nil && err.Error() != "EOF" {
 			panic(err)
 		}
 

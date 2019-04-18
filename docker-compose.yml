@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  blockcredit:
+    ports: 
+      - 3000:3000
+    image: blockcredit:latest
+    build:
+      context: ./
