@@ -8,8 +8,29 @@ services:
     build:
       context: ./
     command: ["3000"]
+    networks: 
+      - main
   blockcredit2:
     ports:
       - 3005:3005
     image: blockcredit:latest
-    command: ["3005", "127.0.0.1:3000"]
+    command: ["3005", "blockcredit:3000"]
+    networks: 
+      - main
+  blockcredit3:
+    ports:
+    - 3010:3010
+    image: blockcredit:latest
+    command: ["3010", "blockcredit:3000"]
+    networks: 
+      - main
+  blockcredit4:
+    ports:
+      - 3020:3020
+    image: blockcredit:latest
+    command: ["3020", "blockcredit2:3005"]
+    networks: 
+      - main
+
+networks: 
+  main:

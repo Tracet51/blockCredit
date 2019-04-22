@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"flag"
-	"os"
 	"strconv"
 	"time"
 
@@ -64,44 +62,63 @@ func main() {
 
 	if len(flag.Args()) > 0 {
 		for _, address := range flag.Args() {
-			peer, err := node.Dial(address)
-			if err != nil {
-				panic(err)
-			}
 
-			skademlia.WaitUntilAuthenticated(peer)
+			attempts := 0
+			for {
+
+				attempts++
+
+				if attempts > 5 {
+					log.Fatal().Msg("Connection timeout on " + address)
+				}
+
+				peer, err := node.Dial(address)
+				if err != nil {
+					time.Sleep(5 * time.Second)
+					continue
+				}
+
+				skademlia.WaitUntilAuthenticated(peer)
+				break
+
+			}
 		}
 
 		peers := skademlia.FindNode(node, protocol.NodeID(node).(skademlia.ID), skademlia.BucketSize(), 8)
 		log.Info().Msgf("Bootstrapped with peers: %+v", peers)
 	}
 
-	reader := bufio.NewReader(os.Stdin)
+	node.Fence()
 
-	for {
-		_, err := reader.ReadString('\t')
+}
 
-		if err != nil && err.Error() != "EOF" {
-			panic(err)
-		}
+func sendTest() {
+	time.Sleep(20 * time.Second)
 
-		block := Block{
-			Amount:       1000,
-			From:         "Trace",
-			Hash:         "laksjdflkadn",
-			Index:        1,
-			PreviousHash: "pwjeanalcoiaen123",
-			Timestamp:    time.Now().String(),
-			To:           "You"}
+	// reader := bufio.NewReader(os.Stdin)
+	// for {
 
-		skademlia.BroadcastAsync(node, block)
-	}
+	// 	_, err := reader.ReadString('\n')
 
+	// 	if err != nil && err.Error() != "EOF" {
+	// 		panic(err)
+	// 	}
+
+	// 	block := Block{
+	// 		Amount:       1000,
+	// 		From:         "Trace",
+	// 		Hash:         "laksjdflkadn",
+	// 		Index:        1,
+	// 		PreviousHash: "pwjeanalcoiaen123",
+	// 		Timestamp:    time.Now().String(),
+	// 		To:           "You"}
+
+	// 	skademlia.BroadcastAsync(node, block)
+	// }
 }
 
 func setup(node *noise.Node) {
 	opcodeBlock = noise.RegisterMessage(noise.Opcode(16), (*Block)(nil))
-
 	node.OnPeerInit(func(node *noise.Node, peer *noise.Peer) error {
 		peer.OnConnError(func(node *noise.Node, peer *noise.Peer, err error) error {
 			log.Info().Msgf("Got an error: %v", err)
@@ -119,8 +136,13 @@ func setup(node *noise.Node) {
 
 		go func() {
 			for {
-				msg := <-peer.Receive(opcodeBlock)
-				log.Info().Msgf("[%s] : %s", protocol.PeerID(peer), msg)
+				select {
+				case msg := <-peer.Receive(opcodeBlock):
+					log.Info().Msgf("[%s] : %s", protocol.PeerID(peer), msg)
+				case <-time.After(10 * time.Second):
+					log.Debug().Msg("Killing the node")
+					node.Kill()
+				}
 			}
 		}()
 
