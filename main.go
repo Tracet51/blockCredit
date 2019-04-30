@@ -24,6 +24,7 @@ import (
 var (
 	opcodeBlock noise.Opcode
 	_           noise.Message = (*Block)(nil)
+	db          IDatastore
 )
 
 type Message struct {
@@ -37,7 +38,8 @@ func main() {
 		panic(err)
 	}
 
-	container.db.Close()
+	db = container.db
+	db.Close()
 
 	portNumber := flag.Uint("p", 3000, "port to listen to peer")
 	host := flag.Bool("h", false, "Whether to make this a host or not")
@@ -147,6 +149,15 @@ func setup(node *noise.Node) {
 				select {
 				case msg := <-peer.Receive(opcodeBlock):
 					log.Info().Msgf("[%s] : %s", protocol.PeerID(peer), msg)
+					// Determine if the block already exists
+					block := msg.(Block)
+					dbBlock, _ := db.ReadBlock(block.Hash)
+					prevBlock, _ := db.ReadBlock(block.PreviousHash)
+					valid := IsBlockValid(dbBlock, prevBlock)
+					if valid {
+						db.WriteBlock(&block)
+						skademlia.BroadcastAsync(node, block)
+					}
 				}
 			}
 		}()
