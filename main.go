@@ -1,10 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/perlin-network/noise/cipher/aead"
 	"github.com/perlin-network/noise/handshake/ecdh"
 
@@ -21,6 +26,10 @@ var (
 	_           noise.Message = (*Block)(nil)
 )
 
+type Message struct {
+	data string
+}
+
 func main() {
 	container, err := InitializeContainer()
 
@@ -31,6 +40,8 @@ func main() {
 	container.db.Close()
 
 	portNumber := flag.Uint("p", 3000, "port to listen to peer")
+	host := flag.Bool("h", false, "Whether to make this a host or not")
+
 	flag.Parse()
 
 	// Instantiate a default set of node parameters.
@@ -88,33 +99,30 @@ func main() {
 		log.Info().Msgf("Bootstrapped with peers: %+v", peers)
 	}
 
+	if *host {
+		r := mux.NewRouter()
+
+		r.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+			data := Block{}
+			bytes, err := ioutil.ReadAll(request.Body)
+
+			defer request.Body.Close()
+			fmt.Println(string(bytes))
+			if err != nil {
+				log.Fatal().Msg(err.Error())
+			}
+			json.Unmarshal(bytes, &data)
+			fmt.Println(data)
+
+			skademlia.BroadcastAsync(node, data)
+
+		}).Methods("POST")
+
+		http.ListenAndServe(":8080", r)
+	}
+
 	node.Fence()
 
-}
-
-func sendTest() {
-	time.Sleep(20 * time.Second)
-
-	// reader := bufio.NewReader(os.Stdin)
-	// for {
-
-	// 	_, err := reader.ReadString('\n')
-
-	// 	if err != nil && err.Error() != "EOF" {
-	// 		panic(err)
-	// 	}
-
-	// 	block := Block{
-	// 		Amount:       1000,
-	// 		From:         "Trace",
-	// 		Hash:         "laksjdflkadn",
-	// 		Index:        1,
-	// 		PreviousHash: "pwjeanalcoiaen123",
-	// 		Timestamp:    time.Now().String(),
-	// 		To:           "You"}
-
-	// 	skademlia.BroadcastAsync(node, block)
-	// }
 }
 
 func setup(node *noise.Node) {
@@ -139,9 +147,6 @@ func setup(node *noise.Node) {
 				select {
 				case msg := <-peer.Receive(opcodeBlock):
 					log.Info().Msgf("[%s] : %s", protocol.PeerID(peer), msg)
-				case <-time.After(10 * time.Second):
-					log.Debug().Msg("Killing the node")
-					node.Kill()
 				}
 			}
 		}()

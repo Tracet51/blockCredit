@@ -2,19 +2,25 @@ version: '3'
 
 services:
   blockcredit:
+    expose: 
+      - 3000-9000
     ports: 
       - 3000:3000
+      - 8080:8080
     image: blockcredit:latest
     build:
       context: ./
-    command: ["3000"]
+    command: ["3000", "-h"]
     networks: 
       - main
   blockcredit2:
+    expose:
+      - 3000-9000
     ports:
       - 3005:3005
+      - 8081:8080
     image: blockcredit:latest
-    command: ["3005", "blockcredit:3000"]
+    command: ["3005", "-h", "blockcredit:3000"]
     networks: 
       - main
   blockcredit3:
