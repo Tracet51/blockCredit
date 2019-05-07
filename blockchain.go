@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 
+	"github.com/perlin-network/noise/log"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 func ProvideLevelDb() *leveldb.DB {
@@ -55,4 +57,26 @@ func (store Db) Close() error {
 	err := store.db.Close()
 
 	return err
+}
+
+func (store Db) findBlock(accountAddress string) {
+	keyPrefix := accountAddress + ":"
+	iterator := store.db.NewIterator(util.BytesPrefix([]byte(keyPrefix)), nil)
+
+	blocks := make([]Block, 0)
+	for iterator.Next() {
+		value := iterator.Value()
+
+		var block Block
+		json.Unmarshal(value, &block)
+		blocks = append(blocks, block)
+	}
+
+	iterator.Release()
+	err := iterator.Error()
+
+	if err != nil {
+		log.Info().Msg(err.Error())
+	}
+
 }

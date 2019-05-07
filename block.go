@@ -14,7 +14,6 @@ import (
 
 // Block represents the base structure for recording credit data
 type Block struct {
-	Index        int
 	Timestamp    string
 	Amount       float64
 	To           string
@@ -29,7 +28,6 @@ func calculateHash(block Block) string {
 
 	record := amount + block.From +
 		block.PreviousHash +
-		string(block.Index) +
 		block.PreviousHash +
 		block.Timestamp +
 		block.To
@@ -45,7 +43,6 @@ func GenerateBlock(oldBlock *Block, amount float64, to string, from string) (Blo
 
 	var newBlock Block
 
-	newBlock.Index = oldBlock.Index + 1
 	newBlock.Timestamp = time.Now().String()
 	newBlock.Amount = amount
 	newBlock.PreviousHash = oldBlock.PreviousHash
@@ -56,10 +53,6 @@ func GenerateBlock(oldBlock *Block, amount float64, to string, from string) (Blo
 
 // IsBlockValid compares two block to determine if they are the same
 func IsBlockValid(newBlock *Block, oldBlock *Block) bool {
-
-	if oldBlock.Index+1 != newBlock.Index {
-		return false
-	}
 
 	if oldBlock.Hash != newBlock.Hash {
 		return false

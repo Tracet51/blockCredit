@@ -22,14 +22,14 @@ import (
 
 /** Define Message **/
 var (
-	opcodeBlock noise.Opcode
-	_           noise.Message = (*Block)(nil)
-	db          IDatastore
+	opcodeBlock     noise.Opcode
+	_               noise.Message = (*Block)(nil)
+	opcodeFindAuths noise.Opcode
+	_               noise.Message = (*FindAuthorizors)(nil)
+	db              IDatastore
 )
 
-type Message struct {
-	data string
-}
+var node noise.Node
 
 func main() {
 	container, err := InitializeContainer()
@@ -103,23 +103,7 @@ func main() {
 
 	if *host {
 		r := mux.NewRouter()
-
-		r.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-			data := Block{}
-			bytes, err := ioutil.ReadAll(request.Body)
-
-			defer request.Body.Close()
-			fmt.Println(string(bytes))
-			if err != nil {
-				log.Fatal().Msg(err.Error())
-			}
-			json.Unmarshal(bytes, &data)
-			fmt.Println(data)
-
-			skademlia.BroadcastAsync(node, data)
-
-		}).Methods("POST")
-
+		r.HandleFunc("/", handleNewBlockRequest).Methods("POST")
 		http.ListenAndServe(":8080", r)
 	}
 
@@ -149,19 +133,64 @@ func setup(node *noise.Node) {
 				select {
 				case msg := <-peer.Receive(opcodeBlock):
 					log.Info().Msgf("[%s] : %s", protocol.PeerID(peer), msg)
-					// Determine if the block already exists
-					block := msg.(Block)
-					dbBlock, _ := db.ReadBlock(block.Hash)
-					prevBlock, _ := db.ReadBlock(block.PreviousHash)
-					valid := IsBlockValid(dbBlock, prevBlock)
-					if valid {
-						db.WriteBlock(&block)
-						skademlia.BroadcastAsync(node, block)
-					}
+					newBlockRecieved(msg)
 				}
 			}
 		}()
 
 		return nil
 	})
+}
+
+func handleNewBlockRequest(writer http.ResponseWriter, request *http.Request) {
+	data := Block{}
+	bytes, err := ioutil.ReadAll(request.Body)
+
+	defer request.Body.Close()
+	fmt.Println(string(bytes))
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
+	json.Unmarshal(bytes, &data)
+	fmt.Println(data)
+
+	skademlia.BroadcastAsync(&node, data)
+}
+
+func newBlockRecieved(message noise.Message) {
+
+	log.Info().Msg("Converting the Message into a Block")
+	block := message.(Block)
+
+	dbBlock, _ := db.ReadBlock(block.Hash)
+	prevBlock, _ := db.ReadBlock(block.PreviousHash)
+
+	valid := IsBlockValid(dbBlock, prevBlock)
+	if !valid {
+		log.Info().Msg("Block not valid returning")
+		return
+	}
+
+	// Determine if can Authorize or needs Authorizors
+
+	// Get From's total reputation by querying the blockchain
+
+	// Get our total reputation by querying the block chain
+
+	// If node has enough peers
+	// Broadcast the block to all child nodes
+	// Wait for verfication from all other nodes
+
+	// If all other node verify the block then write to the blockchain
+
+	// If the other nodes do not authorizes the block then cancel the authorization and take the coin
+
+	// If node needs peers
+
+	// Broadcast message to find peers and form quruom slice
+
+	// Wait until enough peers have joined the slice
+
+	db.WriteBlock(&block)
+	skademlia.BroadcastAsync(&node, block)
 }
