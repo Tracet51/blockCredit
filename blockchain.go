@@ -78,5 +78,4 @@ func (store Db) findBlock(accountAddress string) {
 	if err != nil {
 		log.Info().Msg(err.Error())
 	}
-
 }

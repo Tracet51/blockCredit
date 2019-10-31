@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bobg/scp"
+
 	"github.com/gorilla/mux"
 	"github.com/perlin-network/noise/cipher/aead"
 	"github.com/perlin-network/noise/handshake/ecdh"
@@ -22,14 +24,18 @@ import (
 
 /** Define Message **/
 var (
-	opcodeBlock     noise.Opcode
-	_               noise.Message = (*Block)(nil)
+	nominateMessage noise.Opcode
+	_               noise.Message = (*NominateMessage)(nil)
 	opcodeFindAuths noise.Opcode
 	_               noise.Message = (*FindAuthorizors)(nil)
 	db              IDatastore
 )
 
+var scpNode *scp.Node
 var node noise.Node
+var quorumSet = scp.QSet{
+	M: make([]scp.QSetMember, 0),
+	T: 0}
 
 func main() {
 	container, err := InitializeContainer()
@@ -91,6 +97,7 @@ func main() {
 					continue
 				}
 
+				// Add the peer to the network
 				skademlia.WaitUntilAuthenticated(peer)
 				break
 
@@ -112,28 +119,28 @@ func main() {
 }
 
 func setup(node *noise.Node) {
-	opcodeBlock = noise.RegisterMessage(noise.Opcode(16), (*Block)(nil))
+	nominateMessage = noise.RegisterMessage(noise.Opcode(1), (*NominateMessage)(nil))
 	node.OnPeerInit(func(node *noise.Node, peer *noise.Peer) error {
 		peer.OnConnError(func(node *noise.Node, peer *noise.Peer, err error) error {
-			log.Info().Msgf("Got an error: %v", err)
 
+			log.Info().Msgf("Got an error: %v", err)
 			return nil
 		})
 
 		peer.OnDisconnect(func(node *noise.Node, peer *noise.Peer) error {
+
 			ip := peer.RemoteIP().String()
 			port := strconv.Itoa(int(peer.RemotePort()))
 			log.Info().Msgf("Peer %v has disconnected.", ip+":"+port)
-
 			return nil
 		})
 
 		go func() {
 			for {
 				select {
-				case msg := <-peer.Receive(opcodeBlock):
+				case msg := <-peer.Receive(nominateMessage):
 					log.Info().Msgf("[%s] : %s", protocol.PeerID(peer), msg)
-					newBlockRecieved(msg)
+					go handleNominateMessage(msg.(NominateMessage))
 				}
 			}
 		}()
@@ -145,52 +152,17 @@ func setup(node *noise.Node) {
 func handleNewBlockRequest(writer http.ResponseWriter, request *http.Request) {
 	data := Block{}
 	bytes, err := ioutil.ReadAll(request.Body)
-
-	defer request.Body.Close()
-	fmt.Println(string(bytes))
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
+	defer request.Body.Close()
+
 	json.Unmarshal(bytes, &data)
 	fmt.Println(data)
 
 	skademlia.BroadcastAsync(&node, data)
 }
 
-func newBlockRecieved(message noise.Message) {
-
-	log.Info().Msg("Converting the Message into a Block")
-	block := message.(Block)
-
-	dbBlock, _ := db.ReadBlock(block.Hash)
-	prevBlock, _ := db.ReadBlock(block.PreviousHash)
-
-	valid := IsBlockValid(dbBlock, prevBlock)
-	if !valid {
-		log.Info().Msg("Block not valid returning")
-		return
-	}
-
-	// Determine if can Authorize or needs Authorizors
-
-	// Get From's total reputation by querying the blockchain
-
-	// Get our total reputation by querying the block chain
-
-	// If node has enough peers
-	// Broadcast the block to all child nodes
-	// Wait for verfication from all other nodes
-
-	// If all other node verify the block then write to the blockchain
-
-	// If the other nodes do not authorizes the block then cancel the authorization and take the coin
-
-	// If node needs peers
-
-	// Broadcast message to find peers and form quruom slice
-
-	// Wait until enough peers have joined the slice
-
-	db.WriteBlock(&block)
-	skademlia.BroadcastAsync(&node, block)
+func handleNominateMessage(nominateMessage NominateMessage) {
+	fmt.Println(nominateMessage.MessageID)
 }
